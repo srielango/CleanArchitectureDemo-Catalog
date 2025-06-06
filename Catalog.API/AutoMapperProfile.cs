@@ -1,5 +1,5 @@
 ﻿using AutoMapper;
-using Catalog.Application;
+using Catalog.Application.Products;
 using Catalog.Domain.Entities;
 
 namespace Catalog.API

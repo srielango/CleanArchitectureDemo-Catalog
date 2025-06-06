@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+﻿using Catalog.Application.Products;
+using FluentValidation;
 
 namespace Catalog.Application;
 

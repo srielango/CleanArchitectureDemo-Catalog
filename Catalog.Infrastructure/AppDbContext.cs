@@ -1,9 +1,10 @@
-﻿using Catalog.Domain.Entities;
+﻿using Catalog.Application.Common.Interfaces;
+using Catalog.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Catalog.Infrastructure
 {
-    public class AppDbContext : DbContext
+    public class AppDbContext : DbContext, IApplicationDbContext
     {
         public DbSet<Product> Products { get; set; }
 
