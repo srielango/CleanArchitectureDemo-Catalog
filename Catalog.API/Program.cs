@@ -1,6 +1,9 @@
+using Catalog.API;
 using Catalog.Application;
+using Catalog.Domain.Entities;
 using Catalog.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
@@ -37,6 +40,8 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -64,37 +69,41 @@ app.MapGet("/products/{id:Guid}", GetProductById)
 
 app.MapPost("/products", CreateProduct)
     .WithName("CreateProduct")
-    .RequireAuthorization();
+    .RequireAuthorization(policy => policy.RequireRole(UserRoles.Admin));
 
 app.MapPut("/products", UpdateProduct)
     .WithName("UpdateProduct")
-    .RequireAuthorization();
+    .RequireAuthorization(policy => policy.RequireRole(UserRoles.Admin));
 
 app.MapDelete("/products/{id:Guid}", DeleteProduct)
     .WithName("DeleteProduct")
-    .RequireAuthorization();
+    .RequireAuthorization(policy => policy.RequireRole(UserRoles.Admin));
 
 app.Run();
 
 IResult Login(UserLogin login)
 {
-    if (login.Username == "admin" && login.Password == "password") // mock check
+    var user = InMemoryUserStore.Users.FirstOrDefault(u => u.Username == login.Username && u.Password == login.Password);
+
+    if (user == null)
     {
-        var claims = new[]
-        {
-            new Claim(ClaimTypes.Name, login.Username),
-            new Claim(ClaimTypes.Role, "Admin")
-        };
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("superSecretKey@123ThatIsUsedInMySampleApp"));
-        var token = new JwtSecurityToken(
-            claims: claims,
-            expires: DateTime.UtcNow.AddHours(1),
-            signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256)
-        );
-        var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
-        return Results.Ok(new { token = tokenString });
+        return Results.Unauthorized();
     }
-    return Results.Unauthorized();
+
+    var claims = new[]
+    {
+        new Claim(ClaimTypes.Name, login.Username),
+        new Claim(ClaimTypes.Role, user.Role)
+    };
+
+    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("superSecretKey@123ThatIsUsedInMySampleApp"));
+    var token = new JwtSecurityToken(
+        claims: claims,
+        expires: DateTime.UtcNow.AddHours(1),
+        signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256)
+    );
+    var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
+    return Results.Ok(new { token = tokenString, role = user.Role });
 }
 
 async Task<IResult> GetProducts(IProductService productService)
