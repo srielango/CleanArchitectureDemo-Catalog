@@ -2,9 +2,10 @@ using Catalog.API;
 using Catalog.Application;
 using Catalog.Domain.Entities;
 using Catalog.Infrastructure;
+using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using System.IdentityModel.Tokens.Jwt;
@@ -23,6 +24,8 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddAutoMapper(typeof(Program));
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddValidatorsFromAssemblyContaining<ProductDtoValidator>();
+builder.Services.AddMemoryCache();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options => {
@@ -37,6 +40,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddAuthorization();
+builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
@@ -57,7 +61,15 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    dbContext.Database.EnsureCreated();
+}
+
 app.UseHttpsRedirection();
+
+app.MapHealthChecks("/health");
 
 app.MapPost("/api/login", Login);
 
@@ -78,6 +90,9 @@ app.MapPut("/products", UpdateProduct)
 app.MapDelete("/products/{id:Guid}", DeleteProduct)
     .WithName("DeleteProduct")
     .RequireAuthorization(policy => policy.RequireRole(UserRoles.Admin));
+
+app.MapGet("/products/paged", GetPagedProducts)
+    .WithName("GetPagedProducts");
 
 app.Run();
 
@@ -106,30 +121,55 @@ IResult Login(UserLogin login)
     return Results.Ok(new { token = tokenString, role = user.Role });
 }
 
-async Task<IResult> GetProducts(IProductService productService)
+async Task<IResult> GetProducts(IMemoryCache memoryCache, IProductService productService)
 {
-    return Results.Ok(await productService.GetAllAsync());
+    const string cacheKey = "products_cache";
+
+    if(!memoryCache.TryGetValue(cacheKey, out IEnumerable<ProductDto> cachedProducts))
+    {
+        cachedProducts = await productService.GetAllAsync();
+        var cacheOptions = new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
+        };
+        memoryCache.Set(cacheKey, cachedProducts, cacheOptions);
+    }
+
+    return Results.Ok(ApiResponse<IEnumerable<ProductDto>>.Ok(cachedProducts));
+}
+
+async Task<IResult> GetPagedProducts(IProductService productService, int pageNumber = 1, int pageSize = 10)
+{
+    var products = await productService.GetPagedAsync(pageNumber, pageSize);
+    return Results.Ok(ApiResponse<IEnumerable<ProductDto>>.Ok(products));
 }
 
 async Task<IResult> GetProductById(IProductService productService, Guid id)
 {
-    return Results.Ok(await productService.GetByIdAsync(id));
+    var product = await productService.GetByIdAsync(id);
+    return Results.Ok(ApiResponse<ProductDto>.Ok(product));
 }
 
-async Task<IResult> CreateProduct(IProductService productService, ProductDto product)
+async Task<IResult> CreateProduct(IProductService productService, IValidator<ProductDto> validator, ProductDto product)
 {
+    var validationResult = await validator.ValidateAsync(product);
+    if (!validationResult.IsValid)
+    {
+        return Results.ValidationProblem(validationResult.ToDictionary());
+    }
+
     var result = await productService.AddAsync(product);
-    return Results.Created($"/products/{result.Id}", result);
+    return Results.Ok(ApiResponse<ProductDto>.Ok(result));
 }
 
 async Task<IResult> UpdateProduct(IProductService productService, ProductDto updatedProduct)
 {
     await productService.UpdateAsync(updatedProduct);
-    return Results.NoContent();
+    return Results.Ok(ApiResponse<bool>.Ok(true));
 }
 
 async Task<IResult> DeleteProduct(IProductService productService, Guid id)
 {
     await productService.DeleteAsync(id);
-    return Results.NoContent();
+    return Results.Ok(ApiResponse<bool>.Ok(true));
 }

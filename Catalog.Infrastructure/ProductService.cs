@@ -22,6 +22,15 @@ namespace Catalog.Infrastructure
             return _mapper.Map<IEnumerable<ProductDto>>(products);
         }
 
+        public async Task<IEnumerable<ProductDto>> GetPagedAsync(int pageNumber, int pageSize)
+        {
+            var products = await _context.Products
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+            return _mapper.Map<IEnumerable<ProductDto>>(products);
+        }
+
         public async Task<ProductDto> GetByIdAsync(Guid id)
         {
             var product = await _context.Products.FindAsync(id);

@@ -7,4 +7,5 @@ public interface IProductService
     Task<ProductDto> AddAsync(ProductDto dto);
     Task UpdateAsync(ProductDto dto);
     Task DeleteAsync(Guid id);
+    Task<IEnumerable<ProductDto>> GetPagedAsync(int pageNumber, int pageSize);
 }
