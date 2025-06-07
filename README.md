@@ -36,11 +36,12 @@ A modular .NET Web API built with **Minimal APIs**, **Clean Architecture**, and 
 ---
 
 ## 🗂️ Folder Structure
+```bash
 /src
 /Catalog.API --> Minimal API setup
 /Catalog.Application --> Business logic, CQRS, DTOs, Validators
 /Catalog.Infrastructure --> EFCore, Services, Auth, Seeding
-
+```
 ---
 
 ## 🧪 How to Run
@@ -48,7 +49,7 @@ A modular .NET Web API built with **Minimal APIs**, **Clean Architecture**, and 
 1. **Clone this repository**  
    ```bash
    git clone https://github.com/srielango/CleanArchitectureDemo-Catalog.git
-   '''
+   
    
 2. **Open in Visual Studio 2022+**
 
