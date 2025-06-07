@@ -1,5 +1,4 @@
 using Catalog.API;
-using Catalog.Application;
 using Catalog.Application.Common.Interfaces;
 using Catalog.Application.Products;
 using Catalog.Application.Products.Commands.CreateProduct;
@@ -11,7 +10,6 @@ using Catalog.Application.Products.Queries.GetProductsById;
 using Catalog.Domain.Entities;
 using Catalog.Infrastructure;
 using FluentValidation;
-using FluentValidation.AspNetCore;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
@@ -32,16 +30,13 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseInMemoryDatabase("CatalogDb"));
 
 builder.Services.AddScoped<IApplicationDbContext, AppDbContext>();
-builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(GetAllProductsHandler).Assembly));
+builder.Services.AddMediatR(typeof(GetAllProductsHandler).Assembly);
 
-builder.Services.AddValidatorsFromAssemblyContaining<CreateProductValidator>();
-
-builder.Services.AddFluentValidationAutoValidation();
-
+//builder.Services.AddValidatorsFromAssemblyContaining<CreateProductValidator>();
+builder.Services.AddValidatorsFromAssembly(typeof(CreateProductValidator).Assembly);
 
 builder.Services.AddAutoMapper(typeof(Program));
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddValidatorsFromAssemblyContaining<ProductDtoValidator>();
 builder.Services.AddMemoryCache();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -156,20 +151,26 @@ async Task<IResult> GetProductById(Guid id, IMediator mediator)
     return Results.Ok(ApiResponse<ProductDto>.Ok(product));
 }
 
-async Task<IResult> CreateProduct([FromBody] ProductDto product, IMediator mediator)
+async Task<IResult> CreateProduct([FromServices] IValidator<CreateProductCommand> validator, [FromBody] CreateProductCommand cmd, IMediator mediator)
 {
-    var result = await mediator.Send(new CreateProductCommand(product));
+    var validationResult = await validator.ValidateAsync(cmd);
+    if(!validationResult.IsValid)
+    {
+        return Results.ValidationProblem(validationResult.ToDictionary());
+    }
+    var result = await mediator.Send(cmd);
     return Results.Ok(ApiResponse<ProductDto>.Ok(result));
 }
 
-async Task<IResult> UpdateProduct([FromBody] ProductDto updatedProduct, IMediator mediator)
+async Task<IResult> UpdateProduct([FromBody] UpdateProductCommand cmd, IMediator mediator)
 {
-    await mediator.Send(new UpdateProductCommand(updatedProduct));
+    await mediator.Send(cmd);
     return Results.Ok(ApiResponse<bool>.Ok(true));
 }
 
 async Task<IResult> DeleteProduct(Guid id, IMediator mediator)
 {
-    await mediator.Send(new DeleteProductCommand(id));
+    var cmd = new DeleteProductCommand(id);
+    await mediator.Send(cmd);
     return Results.Ok(ApiResponse<bool>.Ok(true));
 }
