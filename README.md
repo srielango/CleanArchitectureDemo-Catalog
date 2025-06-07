@@ -8,7 +8,7 @@ A modular .NET Web API built with **Minimal APIs**, **Clean Architecture**, and 
 
 ## 🚀 Features
 
-✅ Minimal APIs using .NET 8  
+✅ Minimal APIs using .NET 9 
 ✅ Clean Architecture (Application, Infrastructure, API layers)  
 ✅ CQRS with MediatR  
 ✅ JWT-based Authentication & Role-based Authorization  
@@ -24,7 +24,7 @@ A modular .NET Web API built with **Minimal APIs**, **Clean Architecture**, and 
 
 | Component       | Library/Framework                        |
 |----------------|-------------------------------------------|
-| .NET Runtime    | [.NET 8](https://dotnet.microsoft.com)   |
+| .NET Runtime    | [.NET 9](https://dotnet.microsoft.com)   |
 | API             | Minimal API (no controllers)             |
 | Architecture    | Clean Architecture                       |
 | ORM             | EF Core with In-Memory DB                |
